@@ -1,0 +1,49 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<event size="7" name="sensors"/>
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="38865" name="thymio-II">var scaled_ground[] = [0, 0]
+var factor_ground[] = [4, 4]
+var scaled_motor[] = [0, 0]
+var factor_motor[] = [8, 8]
+var scaled_acc[] = [0, 0, 0]
+var factor_acc[] = [134, 134, 134]
+
+
+timer.period[0] = 250
+
+onevent button.forward
+	motor.left.target = 200
+	motor.right.target = 200
+
+onevent button.backward
+	motor.left.target = -200
+	motor.right.target = -200
+	
+onevent button.center
+	motor.left.target = 0
+	motor.right.target = 0
+	
+onevent timer0
+	call math.mul(scaled_ground, factor_ground, prox.ground.delta)
+	call math.mul(scaled_motor, factor_motor, [motor.left.speed, motor.right.speed])
+	call math.mul(scaled_acc, factor_acc, acc)
+	emit sensors [scaled_ground, [0,0], [0,0,0]]
+	#emit sensors [scaled_ground, scaled_motor, scaled_acc]
+	#[prox.ground.ambiant, prox.ground.reflected, prox.ground.delta, acc, motor.left.speed, motor.right.speed]
+</node>
+
+
+</network>

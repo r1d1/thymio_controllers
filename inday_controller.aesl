@@ -1,0 +1,131 @@
+<!DOCTYPE aesl-source>
+<network>
+
+
+<!--list of global events-->
+<event size="7" name="sensors"/>
+<event size="7" name="dist_sensor"/>
+<event size="2" name="motors"/>
+
+
+<!--list of constants-->
+
+
+<!--show keywords state-->
+<keywords flag="true"/>
+
+
+<!--node thymio-II-->
+<node nodeId="38865" name="thymio-II">var scaled_ground[] = [0, 0]
+#var factor_ground[] = [102, 102]
+var factor_ground[] = [256, 256]
+var scaled_motor[] = [0, 0]
+var factor_motor[] = [8, 8]
+var scaled_acc[] = [0, 0, 0]
+var factor_acc[] = [134, 134, 134]
+var scaled_dist[] = [0, 0, 0, 0, 0, 0, 0]
+#var factor_dist[] = [134, 134, 134, 134, 134, 134, 134]
+var factor_dist[] = [440, 440, 440, 440, 440, 440, 440]
+var state = 1
+var duration=0
+var direction=0
+var random
+var base_speed = 100
+# ground sensor is 0-1024
+# motors are -500 to 500
+# distance are 0 to 440v0
+# 0--4 : front; 5,6 : back
+var weights_left[] = [15, 10,-25,-10,-15, 10, 10]
+var weights_right[] = [-15, -10, -25, 10, 15, 10, 10]
+
+call math.rand(random)
+if random > 0 then
+	direction = 1
+else
+	direction = -1
+end
+		
+timer.period[0] = 100
+
+onevent button.forward
+	motor.left.target = base_speed
+	motor.right.target = base_speed
+	if button.forward == 1 then
+		state = 1			
+	end
+
+#onevent button.backward
+#	motor.left.target = -200
+#	motor.right.target = -200
+	
+onevent button.center
+	motor.left.target = 0
+	motor.right.target = 0
+
+onevent prox
+	call math.div(scaled_dist, prox.horizontal, factor_dist)
+	call math.div(scaled_ground, prox.ground.delta, factor_ground)	
+	#emit dist_sensor scaled_dist
+	#emit sensors [scaled_ground, [0,0], [0,0,0]]
+	
+	
+onevent timer0
+	# periodically :
+	# update state machine
+	# compute new motor speed
+	if  state == 1 then
+	 	# obstacle avoidance
+	 	duration += timer.period[0]
+	 	
+		call math.dot(motor.left.target, scaled_dist, weights_left, 0)
+		call math.dot(motor.right.target, scaled_dist, weights_right, 0)
+		motor.left.target += base_speed * scaled_ground[0]
+		motor.right.target += base_speed * scaled_ground[1]
+
+		if duration > 25000 then
+			if duration &lt; 28000 then
+				motor.left.target += direction * base_speed
+				motor.right.target *= -direction * base_speed
+			else
+				duration = 0
+				call math.rand(random)
+				if random > 0 then
+					direction = 1
+				else
+					direction = -1
+				end
+			end
+			
+		end
+		emit motors [motor.left.target , motor.right.target]
+		# exit condition
+		#if prox.ground.delta[0] &lt; 300 and prox.ground.delta[1] &lt; 300 then
+		#	state = 2
+		#end
+	elseif state == 2 then
+	 	# clear focus
+	 	duration += timer.period[0]
+		motor.left.target = base_speed
+		motor.right.target = -base_speed
+		# exit condition
+		if duration > 5000 then
+			state = 1
+			#duration = 0
+		end
+	
+	elseif state == 3 then
+		# stop
+		motor.left.target = 0
+		motor.right.target = 0
+		# exit condition
+		if button.forward == 1 then
+			state = 1			
+		end
+	end
+	
+	#emit sensors [scaled_ground, scaled_motor, scaled_acc]
+	#[prox.ground.ambiant, prox.ground.reflected, prox.ground.delta, acc, motor.left.speed, motor.right.speed]
+</node>
+
+
+</network>
